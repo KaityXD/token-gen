@@ -1,0 +1,22 @@
+{
+    "threads": 1,
+    "captcha_timeout": 30,
+    "humanizer": {
+        "enabled": true,
+        "avatar": true,
+        "pronouns": true,
+        "bio": true,
+        "hypesquad": true,
+        "display_name": true
+    },
+    "logs": {
+        "censor_token": true,
+        "generation_time": true,
+        "startup_time": false,
+        "hcaptcha_waiting": false,
+        "hcaptcha_solving": true,
+        "humanize_time": true,
+        "verify_time": true,
+        "total_time": true
+    }
+}
