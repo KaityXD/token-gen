@@ -63,3 +63,4 @@ class NexusColor:
     LIGHTBLACK: str = Color.hex_to_ansi("#5c5e5b")
     LIGHTBLUE: str = Color.hex_to_ansi("#03f8fc")
     YELLOW: str = Color.hex_to_ansi("#fcf803")
+    CYAN: str = Color.hex_to_ansi("#00ffff")

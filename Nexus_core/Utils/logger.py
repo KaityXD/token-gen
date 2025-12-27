@@ -9,6 +9,7 @@ from Nexus_core.NexusColors.color import NexusColor
 
 class Logger:
     STATUS: ClassVar[str] = ""
+    DEBUG: ClassVar[bool] = False
     LC: ClassVar[str] = f"{NexusColor.NEXUS}[{NexusColor.LIGHTBLACK}NEXUS{NexusColor.NEXUS}] "
 
     _lock: ClassVar[threading.Lock] = threading.Lock()
@@ -81,6 +82,9 @@ class Logger:
     def queue_log(cls, worker_id: int, status: Optional[str] = None, overwrite: bool = True):
         if status is None:
             status = cls.STATUS
+        
+        overwrite = False if cls.DEBUG else overwrite
+
         with cls._lock:
             cls._register_worker(worker_id)
             cls._workers[worker_id]["last_log"] = status
@@ -94,6 +98,9 @@ class Logger:
     def log_process(cls, worker_id: int, status: Optional[str] = None, overwrite: bool = True):
         if status is None:
             status = cls.STATUS
+        
+        overwrite = False if cls.DEBUG else overwrite
+
         with cls._lock:
             cls._register_worker(worker_id)
             cls._workers[worker_id]["last_log"] = status
@@ -109,6 +116,12 @@ class Logger:
             line=line
         )
         sys.stdout.flush()
+
+    @classmethod
+    def debug(cls, worker_id: int, message: str, color: str = NexusColor.CYAN):
+        if cls.DEBUG:
+            cls.STATUS = f"{color}[DEBUG] {message}"
+            cls.queue_log(worker_id, overwrite=False)
 
     @classmethod
     def print_stats(cls, worker_id: int, stats_list: list[tuple[str, str, bool]]):

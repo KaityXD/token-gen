@@ -36,15 +36,18 @@ def worker(worker_id: int, stats: Dict[str, Any], generator_ref) -> None:
             Logger.STATUS = f"{NexusColor.RED}{status}"
             Logger.queue_log(worker_id=worker_id)
 
-    except TimeoutError:
-        Logger.STATUS = f"{NexusColor.RED}Timeout Error"
-        Logger.queue_log(worker_id=worker_id)
+    # except TimeoutError:
+    #     Logger.STATUS = f"{NexusColor.RED}Timeout Error"
+    #     Logger.queue_log(worker_id=worker_id)
 
     except ConnectionError:
         Logger.STATUS = f"{NexusColor.RED}Failed to connect to proxy"
         Logger.queue_log(worker_id=worker_id)
 
     except Exception as e:
+        if Logger.DEBUG:
+            import traceback
+            traceback.print_exc()
         error_msg = f"{NexusColor.RED}Worker Exception: {e}"
 
         Logger.STATUS = error_msg
@@ -79,11 +82,6 @@ class TokenGenerator:
             locked = self.stats["locked"]
             invalid = self.stats["invalid"]
 
-            ctypes.windll.kernel32.SetConsoleTitleW(
-                f"Nexus Token Gen | Unlocked: {tokens} | Locked: {locked} | Invalid: {invalid} | "
-                f"Time {elapsed:.2f}s"
-            )
-            time.sleep(0.1)
 
 
     def browser_closed_signal(self, worker_id: int):
@@ -154,7 +152,6 @@ class TokenGenerator:
 
 
 if __name__ == "__main__":  
-    ctypes.windll.kernel32.SetConsoleTitleW("Nexus Token Gen")
     intro()
     Logger.start_logger()
     generator = TokenGenerator(num_workers=Config.config.get("threads", 1))

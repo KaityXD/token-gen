@@ -8,8 +8,11 @@ from typing import Any, Dict, Tuple, Set, Optional, List
 import tls_client
 
 
+from Nexus_core.Utils.logger import Logger
+
 class Config:
     config: Dict[str, Any] = json.load(open("config.json", encoding="utf-8"))
+    Logger.DEBUG = config.get("debug", False)
 
 
 class Utils:

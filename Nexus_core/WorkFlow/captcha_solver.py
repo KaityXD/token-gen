@@ -39,6 +39,7 @@ class CaptchaSolver:
             pass
 
     def inject_accessibility_challenge(self, frame: Frame) -> None:
+        Logger.debug(self.worker_id, "Injecting accessibility challenge")
         self.js.open_accessibility_challenge(frame)
 
     def find_hcaptcha_frame(self, page: Page, timeout: int = 30) -> Optional[Frame]:
@@ -57,6 +58,7 @@ class CaptchaSolver:
                 try:
                     checkbox = frame.query_selector("div#checkbox")
                     if checkbox and checkbox.get_attribute("aria-checked") == "false":
+                        Logger.debug(self.worker_id, "Clicking hCaptcha checkbox")
                         checkbox.click()
                 except Exception as e:
                     Logger.STATUS = f"{NexusColor.YELLOW}Error clicking checkbox: {e}"
@@ -101,9 +103,11 @@ class CaptchaSolver:
                 continue
 
             question: str = question_elem.inner_text().strip()
+            Logger.debug(self.worker_id, f"Question: {question}")
             current_run.clear()
 
             answer: str = self.knowledgebase.get(question) or self._fetch_answer(question)
+            Logger.debug(self.worker_id, f"Answer: {answer}")
             current_run.append((question, answer))
 
             try:
@@ -121,14 +125,22 @@ class CaptchaSolver:
 
     def _fetch_answer(self, question: str) -> str:
         try:
+            api_key = self.config.get("groq_api_key")
+            model = self.config.get("groq_model", "llama-3.3-70b-versatile")
+            
+            if not api_key or api_key == "YOUR_GROQ_API_KEY_HERE":
+                Logger.STATUS = f"{NexusColor.RED}Groq API Key not configured!"
+                Logger.queue_log(worker_id=self.worker_id)
+                return "nee"
+
             response = requests.post(
-                url="https://openrouter.ai/api/v1/chat/completions",
+                url="https://api.groq.com/openai/v1/chat/completions",
                 headers={
-                    "Authorization": "your api key",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 data=json.dumps({
-                    "model": "gpt-4o-mini",
+                    "model": model,
                     "messages": [{
                         "role": "user",
                         "content": (

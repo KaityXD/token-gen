@@ -8,55 +8,111 @@ import tls_client
 
 from .discord import HeaderGenerator
 from ..Utils.utils import Utils
+from ..Utils.logger import Logger
 
 
 class NexusMailApi:
-    def __init__(self, api_url: str = "https://api.nexuscaptcha.eu/", api_key: str = "NexusApi-70d89e8") -> None:
+    def __init__(self, api_url: str = "http://103.114.203.91:8080", api_key: str = "993627ba-bff6-4c78-b750-e404d41f1b69") -> None:
         self.api_url: str = api_url.rstrip("/")
         self.headers: Dict[str, str] = {"X-API-Key": api_key}
 
     def create_account(self, email: str, password: str) -> Optional[str]:
-        try:
-            resp = requests.post(
-                f"{self.api_url}/create_account",
-                json={"email": email, "password": password},
-                headers=self.headers,
-                verify=True
-            )
-            if resp.ok:
-                return email
-        except requests.RequestException as e:
-            print(f"Error creating account: {e}")
-        return None
-
-    def get_inbox(self, email: str, password: str, poll_interval: int = 1, timeout: int = 30) -> Optional[str]:
-        start_time = time.time()
-        while True:
+        base_url = self.api_url
+        domain = "@tempmail.katxd.xyz"
+        
+        # Try 3 times
+        for _ in range(3):
             try:
+                # If email/pass not provided or we want to randomize (though signature implies they are passed)
+                # The user snippet generates them. We will use the passed ones if valid, or generate if needed?
+                # The user code ignores arguments in create_temp_email. 
+                # But here we are called with specific email/pass from discord_register.
+                # Let's respect the passed arguments but if they fail, maybe we should have fallback?
+                # Actually, the user snippet's `create_temp_email` generates its own.
+                # But `discord_register` calls this with `username@domain`. 
+                # Let's stick to using the passed arguments for the first try, 
+                # but the user snippet shows a loop of generating NEW random emails.
+                # To match the user's intent of "robust creation", we should probably just try to create the one requested.
+                
+                payload = {"email": email, "password": password}
                 resp = requests.post(
-                    f"{self.api_url}/get_inbox",
-                    json={"email": email, "password": password},
+                    f"{base_url}/api/create_account",
+                    json=payload,
                     headers=self.headers,
+                    timeout=12,
                     verify=True
                 )
+                Logger.debug(0, f"Create account response: {resp.status_code}")
+                
+                if resp.status_code in [200, 201]:
+                    return email
+                else:
+                    time.sleep(2)
+            except Exception as e:
+                time.sleep(2)
+        
+        # Fallback if the specific email failed? 
+        # The user snippet returns a fallback random email.
+        # But our signature returns Optional[str] (the email).
+        # If we return a DIFFERENT email than requested, the caller (discord_register) might be confused 
+        # because it generated the username/email itself.
+        # However, looking at discord_register, it uses the returned email:
+        # email: str = NexusMailApi().create_account(...)
+        # So it IS safe to return a different email.
+        
+        fallback = f"user{Utils.random_string(6)}{domain}"
+        return fallback
+
+    def get_inbox(self, email: str, password: str, poll_interval: int = 3, timeout: int = 120) -> Optional[str]:
+        # User snippet uses 40 attempts * 3s sleep = 120s timeout roughly.
+        start_time = time.time()
+        used_ids = set()
+        
+        while time.time() - start_time < timeout:
+            try:
+                resp = requests.post(
+                    f"{self.api_url}/api/get_inbox",
+                    json={"email": email, "password": password},
+                    headers=self.headers,
+                    timeout=12,
+                    verify=True
+                )
+                Logger.debug(0, f"Get inbox response: {resp.status_code}")
+                
                 if resp.status_code != 200:
+                    time.sleep(poll_interval)
                     continue
 
-                inbox = resp.json()
-                if inbox and len(inbox) > 0:
-                    body = inbox[0].get('body', '')
-                    if body:
+                data = resp.json()
+                mails = data if isinstance(data, list) else data.get("emails", [])
+
+                for mail in mails:
+                    mail_id = mail.get("id") or str(hash(mail.get("subject", "") + mail.get("timestamp", "")))
+                    
+                    if mail_id in used_ids:
+                        continue
+                    
+                    subject = mail.get("subject", "")
+                    if "Discord" in subject and ("verify" in subject.lower() or "ยืนยัน" in subject):
+                        body = mail.get("body", "") + mail.get("html", "")
+                        
+                        # Extract UPN
                         match = re.search(r'upn=([^\s&]+)', body)
                         if match:
-                            return match.group(1)
-
-                if time.time() - start_time > timeout:
-                    return None
-
-            except Exception as e:
-                print(f"Error checking inbox: {e}")
+                            upn = match.group(1)
+                            Logger.debug(0, f"Found UPN: {upn}")
+                            return upn
+                        
+                        # Also check for link if needed, but we return UPN here
+                        # The user snippet has get_verification_link AND get_verification_upn
+                        # Our interface expects UPN (str).
+            
+            except Exception:
+                pass
 
             time.sleep(poll_interval)
+            
+        return None
 
 
 class MailVerify:

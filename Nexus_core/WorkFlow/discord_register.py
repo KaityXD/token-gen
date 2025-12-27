@@ -34,7 +34,10 @@ class DiscordRegister:
 
         proxy: Optional[Dict[str, str]] = self.proxy_manager.get_proxy(worker_id=worker_id)
         if not proxy:
+            Logger.debug(worker_id, "No proxy available immediately, waiting...")
             proxy = self.proxy_manager.wait_for_proxies(worker_id)
+        
+        Logger.debug(worker_id, f"Using proxy: {proxy.get('server') if proxy else 'None'}")
 
         start_time_startup: float = time.time()
         Logger.STATUS = f"{NexusColor.YELLOW}Starting Browser"
@@ -51,18 +54,20 @@ class DiscordRegister:
 
             
             page.goto("https://discord.com/register", timeout=30_000, wait_until="networkidle")
+            Logger.debug(worker_id, "Navigated to registration page")
             self.js_injector.setup_js(page)
 
             elapsed_time_startup: float = time.time() - start_time_startup
             Logger.STATUS = f"{NexusColor.YELLOW}Loading Page"
             Logger.queue_log(worker_id=worker_id)
 
-            domain: str = Utils.get_domain()
+            domain: str = "tempmail.katxd.xyz"
             username: str = Utils.random_string()
             email: str = NexusMailApi().create_account(
                 email=f"{username}@{domain}",
                 password=self.password
             )
+            Logger.debug(worker_id, f"Created email account: {email}")
             
             start_time: float = time.time()
             Logger.STATUS = f"{NexusColor.YELLOW}Filling Inputs"
@@ -82,11 +87,13 @@ class DiscordRegister:
 
             page.wait_for_selector('button[type="submit"]', timeout=3_000)
             self.js_injector.click_element(page, 'button[type="submit"]')
+            Logger.debug(worker_id, "Clicked submit button")
 
             hcap_start: float = time.time()
             solver: CaptchaSolver = CaptchaSolver(page, worker_id)
             Logger.STATUS = f"{NexusColor.YELLOW}Waiting For Captcha"
             Logger.queue_log(worker_id=worker_id)
+            time.sleep(3)
 
             frame = solver.find_hcaptcha_frame(page=page, timeout=self.config.get("captcha_timeout"))
             if not frame:
@@ -96,6 +103,7 @@ class DiscordRegister:
 
             hcap_time: float = time.time() - hcap_start
             hcap_time_solve: float = solver.solve_accessibility_hcaptcha(frame=frame)
+            Logger.debug(worker_id, f"Solved captcha in {hcap_time_solve:.2f}s")
 
             token: Optional[str] = self.js_injector.wait_for_discord_token(page=page)
             if not token:
@@ -129,20 +137,61 @@ class DiscordRegister:
                 Logger.STATUS = f"{NexusColor.YELLOW}Verifying Token.."
                 Logger.queue_log(worker_id=worker_id)
 
-
                 start_time_verify: float = time.time()
+                Logger.debug(worker_id, f"Fetching inbox for {email}")
                 upn = NexusMailApi().get_inbox(email=email, password=self.password)
-                verify = MailVerify(proxy_dict=proxy)
-                ev_token: Optional[str]
-                ev: bool
-                ev_token, ev = None, False
+                Logger.debug(worker_id, f"Got UPN: {upn[:10]}..." if upn else "No UPN found")
+                
+                ev_token: Optional[str] = None
+                ev: bool = False
+                
+                if upn:
+                    use_request = self.config.get("use_request_email_verify", True)
+                    
+                    if use_request:
+                        verify = MailVerify(proxy_dict=proxy)
+                        ev_token, ev = verify.verify_token(token, upn)
+                    else:
+                        # Browser verification
+                        try:
+                            Logger.STATUS = f"{NexusColor.YELLOW}Verifying via Browser.."
+                            Logger.queue_log(worker_id=worker_id)
+                            
+                            verify_link = f"https://click.discord.com/ls/click?upn={upn}"
+                            page.goto(verify_link, wait_until='domcontentloaded', timeout=60000)
+                            time.sleep(5)
+                            
+                            new_token = self.js_injector.wait_for_discord_token(page=page)
+                            
+                            if new_token and new_token != "REGISTRATION_SUCCESS_NO_TOKEN":
+                                ev = True
+                                ev_token = new_token
+                            else:
+                                # Check content for success
+                                content = page.content()
+                                if "verified" in content.lower() or "continue to discord" in content.lower():
+                                    ev = True
+                                    # Try one more extraction or keep initial
+                                    new_token = self.js_injector.wait_for_discord_token(page=page)
+                                    ev_token = new_token if new_token else token
+                                else:
+                                    # Fallback to assuming success if no error? 
+                                    # User snippet says: "Browser verification finished but no clear success indicator." -> return True, initial_token
+                                    ev = True
+                                    ev_token = token
+                        except Exception as e:
+                            Logger.STATUS = f"{NexusColor.RED}Browser Verify Error: {e}"
+                            Logger.queue_log(worker_id=worker_id)
+                            ev = False
+
                 elapsed_time_verify: float = time.time() - start_time_verify if ev else 0.0
 
                 if ev:
                     Logger.STATUS = f"{NexusColor.GREEN}Token Verified!"
                     Logger.queue_log(worker_id=worker_id)
 
-                    token = ev_token
+                    if ev_token:
+                        token = ev_token
 
                 if self.config["humanizer"]["enabled"] and ev:
                     Logger.STATUS = f"{NexusColor.YELLOW}Humanizing Token..."
@@ -227,4 +276,3 @@ class DiscordRegister:
         ]
 
         Logger.queue_stats(worker_id, stats)
-

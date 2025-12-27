@@ -1,16 +1,17 @@
 {
     "threads": 1,
+    "debug": true,
     "captcha_timeout": 30,
     "humanizer": {
         "enabled": true,
         "avatar": true,
         "pronouns": true,
         "bio": true,
-        "hypesquad": true,
+        "hypesquad": false,
         "display_name": true
     },
     "logs": {
-        "censor_token": true,
+        "censor_token": false,
         "generation_time": true,
         "startup_time": false,
         "hcaptcha_waiting": false,
@@ -18,5 +19,7 @@
         "humanize_time": true,
         "verify_time": true,
         "total_time": true
-    }
+    },
+    "groq_api_key": "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",
+    "groq_model": "llama-3.3-70b-versatile"
 }

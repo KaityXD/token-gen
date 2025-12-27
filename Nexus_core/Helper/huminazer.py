@@ -100,6 +100,7 @@ class DiscordHuminazer:
                     bio = self._get_random_bio()
                     if bio:
                         r = session.patch("https://discord.com/api/v9/users/@me", json={"bio": bio})
+                        Logger.debug(self.worker_id, f"Bio update status: {r.status_code}")
                         if r.status_code != 200:
                             Logger.STATUS = f"{NexusColor.RED}Failed to update bio"
                             Logger.queue_log(worker_id=self.worker_id, overwrite=False)
@@ -109,6 +110,7 @@ class DiscordHuminazer:
                     pronouns = self._get_random_pronouns()
                     if pronouns:
                         r = session.patch("https://discord.com/api/v9/users/@me", json={"pronouns": pronouns})
+                        Logger.debug(self.worker_id, f"Pronouns update status: {r.status_code}")
                         if r.status_code != 200:
                             Logger.STATUS = f"{NexusColor.RED}Failed to update pronouns"
                             Logger.queue_log(worker_id=self.worker_id, overwrite=False)
@@ -118,6 +120,7 @@ class DiscordHuminazer:
                     display_name = self._get_random_display_name()
                     if display_name:
                         r = session.patch("https://discord.com/api/v9/users/@me", json={"global_name": display_name})
+                        Logger.debug(self.worker_id, f"Display name update status: {r.status_code}")
                         if r.status_code != 200:
                             Logger.STATUS = f"{NexusColor.RED}Failed to update display name"
                             Logger.queue_log(worker_id=self.worker_id, overwrite=False)
@@ -131,6 +134,7 @@ class DiscordHuminazer:
                             "https://discord.com/api/v9/hypesquad/online",
                             json={"house_id": house_id}
                             )
+                        Logger.debug(self.worker_id, f"Hypesquad join status: {r.status_code}")
                         if r.status_code != 204:
                             Logger.STATUS = f"{NexusColor.RED}Failed to join Hypesquad"
                             Logger.log_procces(overwrite=False)
@@ -146,6 +150,7 @@ class DiscordHuminazer:
                                 "https://discord.com/api/v9/users/@me",
                                 json={"avatar": f"data:image/png;base64,{avatar_b64}"}
                                 )
+                            Logger.debug(self.worker_id, f"Avatar update status: {r.status_code}")
                             if r.status_code != 200:
                                 Logger.STATUS = f"{NexusColor.RED}Failed to update avatar"
                                 Logger.queue_log(worker_id=self.worker_id, overwrite=False)

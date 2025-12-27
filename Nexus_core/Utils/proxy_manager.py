@@ -38,6 +38,7 @@ class ProxyManager:
         return first
 
     def _parse_proxy_line(self, line: str, worker_id: int) -> Optional[Dict[str, str]]:
+        Logger.debug(worker_id, f"Parsing proxy line: {line}")
         try:
             if "@" not in line:
                 Logger.STATUS = f"{NexusColor.RED}Invalid proxy format: '{line}'"
@@ -68,6 +69,7 @@ class ProxyManager:
 
         line = self._pop_proxy_line()
         if not line:
+            Logger.debug(worker_id, "No proxies available in list")
             return None
         return self._parse_proxy_line(line, worker_id)
 
