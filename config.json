@@ -20,6 +20,6 @@
         "verify_time": true,
         "total_time": true
     },
-    "groq_api_key": "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",
+    "groq_api_key": "",
     "groq_model": "llama-3.3-70b-versatile"
 }
